@@ -12,6 +12,7 @@
 
 
 //TODO add command line args?
+//TODO add corresponding write tests
 int main() {
 	//Run some tests
 	std::cout <<"***********************************************"
@@ -76,8 +77,12 @@ int main() {
 	assocCache.read(0x1234BEEF);
 	assert(assocCache.read(0x1234BEEF));
 	assert(assocCache.read(0xDEADBEEF));
+	assert(!assocCache.read(0xCAB0BEEF));
 	std::cout << "Success!" << std::endl;
 
+	std::cout << "Cache Reads: " << assocCache.tracker.getReadCount() << std::endl;
+
+	//TODO write tests for cache tracker
 }
 
 

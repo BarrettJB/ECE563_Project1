@@ -8,6 +8,7 @@
 #ifndef CACHE_H_
 #define CACHE_H_
 
+#include "CacheStatTracker.h"
 //TODO define verbose?
 
 class Cache {
@@ -17,6 +18,8 @@ public:
 	//TODO read and write requests
 	bool read(unsigned long addr);
 	bool write(unsigned long addr);
+
+	CacheStatTracker tracker;
 
 
 private:

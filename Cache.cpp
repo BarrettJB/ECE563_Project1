@@ -41,6 +41,8 @@ bool Cache::read(unsigned long addr) {
 	int LRUMax = -1;
 	int LRUIndex = -1;
 
+	tracker.addRead();
+
 	for(int i = 0; i < mAssoc; i++) {
 
 		//Gets index in tag array
@@ -82,9 +84,11 @@ bool Cache::read(unsigned long addr) {
 	//Cache Miss
 	if(VERBOSE)
 	std::cout << "Cache miss!" << std::endl << std::endl;
+	tracker.addReadMiss();
+
 
 	if (mDirty[LRUIndex]) {
-		//TODO handle writeback
+		tracker.addWriteback();
 	}
 
 	Cache::bump_LRU();
@@ -100,6 +104,8 @@ bool Cache::write(unsigned long addr) {
 	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
 	int LRUMax = -1;
 	int LRUIndex = -1;
+
+	tracker.addWrite();
 
 	for(int i = 0; i < mAssoc; i++) {
 
@@ -139,9 +145,10 @@ bool Cache::write(unsigned long addr) {
 	//Cache Miss
 	if(VERBOSE)
 	std::cout << "Cache miss!" << std::endl << std::endl;
+	tracker.addWriteMiss();
 
 	if (mDirty[LRUIndex]) {
-		//TODO handle writeback
+		tracker.addWriteback();
 	}
 
 	Cache::bump_LRU();
