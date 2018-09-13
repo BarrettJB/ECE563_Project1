@@ -10,7 +10,7 @@
 #include<iostream>
 #include<algorithm>
 
-#define VERBOSE false
+#define VERBOSE true
 
 //TODO validate input options
 Cache::Cache(int size, int assoc, int blocksize) {
@@ -36,92 +36,136 @@ Cache::Cache(int size, int assoc, int blocksize) {
 
 //Returns true on hit and false on miss
 bool Cache::read(unsigned long addr) {
-	unsigned long index = CacheMath::getIndex(addr, mLogBlockSize, mSets);
+	unsigned long set = CacheMath::getSet(addr, mLogBlockSize, mSets);
 	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
+	int LRUMax = -1;
+	int LRUIndex = -1;
 
-	if(VERBOSE)
-	std::cout << "Handling read request..." << std::endl
-			<< "   Index: " << index << std::endl
-			<< "   Tag: " << tag << std::endl
-			<< "   Cache Tag: " << mTags[index] << std::endl
-			<< "   Cache Valid: " << mValid[index] << std::endl;
+	for(int i = 0; i < mAssoc; i++) {
 
-	if (mTags[index] == tag && mValid[index])
-	{
-		//Cache hit
+		//Gets index in tag array
+		//TODO put into cachemath;
+		unsigned long index = set*mAssoc + i;
+
 		if(VERBOSE)
-		std::cout << "Cache hit!" << std::endl << std::endl;
+		std::cout << "Handling read request..." << std::endl
+				<< "   Set: " << set << std::endl
+				<< "   Index: " << i << std::endl
+				<< "   Tag: " << tag << std::endl
+				<< "   Cache LRU: " << mLRU[index] << std::endl
+				<< "   Cache Tag: " << mTags[index] << std::endl
+				<< "   Cache Valid: " << mValid[index] << std::endl;
 
-		return true;
-	} else
-	{
-		//Cache miss
-		//TODO handle LRU replacement
-		if(VERBOSE)
-		std::cout << "Cache miss!" << std::endl << std::endl;
-
-		if (mDirty[index]) {
-			//TODO handle writeback
-		}
-
-		Cache::bump_LRU();
-		mLRU[index] = 0;
-		mTags[index] = tag;
-		mValid[index] = true;
-		mDirty[index] = false;
-	    return false;
-	}
-}
-
-bool Cache::write(unsigned long addr) {;
-	unsigned long index = CacheMath::getIndex(addr, mLogBlockSize, mSets);
-	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
-
-	if(VERBOSE)
-	std::cout << "Handling write request..." << std::endl
-			<< "   Index: " << index << std::endl
-			<< "   Tag: " << tag << std::endl
-			<< "   Cache Tag: " << mTags[index] << std::endl;
-
-	if (mTags[index] == tag && mValid[index])
+		//Check for cache hits;
+		if (mTags[index] == tag && mValid[index])
 		{
 			//Cache hit
 			if(VERBOSE)
 			std::cout << "Cache hit!" << std::endl << std::endl;
-			mDirty[index] = true;
-			return true;
-		} else
-		{
-			//Cache miss
-			//TODO handle LRU replacement
-			if(VERBOSE)
-			std::cout << "Cache miss!" << std::endl << std::endl;
-
-			if (mDirty[index]) {
-				//TODO handle writeback
-			}
 
 			Cache::bump_LRU();
-			mLRU[index] = 0;
-			mTags[index] = tag;
-			mValid[index] = true;
-			mDirty[index] = true;
-		    return false;
+		    mLRU[LRUIndex] = 0;
+			return true;
 		}
+
+		//Track LRU values
+		if (LRUMax < mLRU[index])
+		{
+			if(VERBOSE)
+			std::cout << "  LRU index changed to: " << index << std::endl;
+			LRUMax = mLRU[index];
+			LRUIndex = index;
+		}
+	}
+
+
+	//Cache Miss
+	if(VERBOSE)
+	std::cout << "Cache miss!" << std::endl << std::endl;
+
+	if (mDirty[LRUIndex]) {
+		//TODO handle writeback
+	}
+
+	Cache::bump_LRU();
+	mLRU[LRUIndex] = 0;
+	mTags[LRUIndex] = tag;
+	mValid[LRUIndex] = true;
+	mDirty[LRUIndex] = false;
+    return false;
+}
+
+bool Cache::write(unsigned long addr) {
+	unsigned long set = CacheMath::getSet(addr, mLogBlockSize, mSets);
+	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
+	int LRUMax = -1;
+	int LRUIndex = -1;
+
+	for(int i = 0; i < mAssoc; i++) {
+
+		//Gets index in tag array
+		//TODO put into cachemath;
+		unsigned long index = set*mAssoc + i;
+
+		if(VERBOSE)
+		std::cout << "Handling read request..." << std::endl
+				<< "   Set: " << set << std::endl
+				<< "   Index: " << i << std::endl
+				<< "   Tag: " << tag << std::endl
+				<< "   Cache Tag: " << mTags[index] << std::endl
+				<< "   Cache Valid: " << mValid[index] << std::endl;
+
+		//Check for cache hits;
+		if (mTags[index] == tag && mValid[index])
+		{
+			//Cache hit
+			if(VERBOSE)
+			std::cout << "Cache hit!" << std::endl << std::endl;
+
+			Cache::bump_LRU();
+			mLRU[LRUIndex] = 0;
+			mDirty[index] = true;
+			return true;
+		}
+
+		//Track LRU values
+		if (LRUMax < mLRU[index])
+		{
+			LRUMax = mLRU[index];
+			LRUIndex = index;
+		}
+	}
+
+	//Cache Miss
+	if(VERBOSE)
+	std::cout << "Cache miss!" << std::endl << std::endl;
+
+	if (mDirty[LRUIndex]) {
+		//TODO handle writeback
+	}
+
+	Cache::bump_LRU();
+	mLRU[LRUIndex] = 0;
+	mTags[LRUIndex] = tag;
+	mValid[LRUIndex] = true;
+	mDirty[LRUIndex] = true;
+    return false;
 }
 
 //Used to init valid and dirty arrays to false
+//uses 0x7FFFFFFE as max to prevent overflows
 void Cache::init_arrays() {
-	for (int i = 0; i < mSets; i++) {
+	for (int i = 0; i < mSets*mAssoc; i++) {
 		mValid[i] = false;
 		mDirty[i] = false;
-		mLRU[i] = 0x7FFFFFFF;
+		mLRU[i] = 0x7FFFFFFE;
 	}
 }
 
 void Cache::bump_LRU() {
-	for (int i = 0; i < mSets; i++) {
-		mLRU[i] = std::min(0x7FFFFFFF, mLRU[i]+1);
+	for (int i = 0; i < mSets*mAssoc; i++) {
+		//Overflows cause errors if this is 0x7FFFFFFF
+		mLRU[i] = std::min(0x7FFFFFFE, mLRU[i]+1);
 	}
 }
 

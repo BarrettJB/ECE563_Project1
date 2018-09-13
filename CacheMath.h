@@ -11,7 +11,7 @@
 class CacheMath {
 public:
 	static int log2(int i);
-	static unsigned long getIndex(unsigned long addr, int logBlock, int sets) {return (addr >> logBlock) & (sets-1);};
+	static unsigned long getSet(unsigned long addr, int logBlock, int sets) {return (addr >> logBlock) & (sets-1);};
 	static unsigned long getTag(unsigned long addr, int logBlock, int logSets) {return addr >> (logBlock + logSets);};
 };
 

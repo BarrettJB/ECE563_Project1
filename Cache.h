@@ -11,6 +11,7 @@
 //TODO define verbose?
 
 class Cache {
+	//TODO have this class keep track of its stats (eg hit/miss)
 public:
 	Cache(int size, int assoc, int blocksize);
 	//TODO read and write requests
