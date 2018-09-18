@@ -13,7 +13,7 @@
 
 //TODO add command line args?
 //TODO add corresponding write tests
-int main() {
+int mainTest() {
 	//Run some tests
 	std::cout <<"***********************************************"
 			  "\n             Testing cache class \n" <<

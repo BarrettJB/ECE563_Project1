@@ -10,7 +10,7 @@
 #include<iostream>
 #include<algorithm>
 
-#define VERBOSE true
+#define VERBOSE false
 
 //TODO validate input options
 Cache::Cache(int size, int assoc, int blocksize) {
