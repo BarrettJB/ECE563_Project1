@@ -7,31 +7,41 @@
 
 #include "Cache.h"
 #include "CacheMath.h"
-#include<iostream>
 #include<algorithm>
 
 #define VERBOSE false
 
 //TODO validate input options
-Cache::Cache(int size, int assoc, int blocksize) {
-	mBlocksize = blocksize;
-	mAssoc = assoc;
-	mSets = size/(assoc * blocksize);
-	mLogSets = CacheMath::log2(mSets);
-	mLogBlockSize = CacheMath::log2(blocksize);
+Cache::Cache(int size, int assoc, int blocksize, Cache* next) {
+	if(size != 0)
+	{
+		mBlocksize = blocksize;
+		mAssoc = assoc;
+		mSets = size/(assoc * blocksize);
+		mLogSets = CacheMath::log2(mSets);
+		mLogBlockSize = CacheMath::log2(blocksize);
 
-	if(VERBOSE)
-	std::cout << "New Cache Created!" << std::endl
-			<< "   Blocksize: " << mBlocksize << " " << mLogBlockSize << std::endl
-			<< "   Sets: " << mSets << " " << mLogSets << std::endl
-			<< "   Association: " << mAssoc << std::endl <<std::endl;
+		if(VERBOSE)
+		std::cout << "New Cache Created!" << std::endl
+				<< "   Blocksize: " << mBlocksize << " " << mLogBlockSize << std::endl
+				<< "   Sets: " << mSets << " " << mLogSets << std::endl
+				<< "   Association: " << mAssoc << std::endl <<std::endl;
 
-	mTags = new unsigned long[mSets];
-	mValid = new bool[mSets];
-	mDirty = new bool[mSets];
-	mLRU = new int[mSets];
-	Cache::init_arrays();
-    //TODO check that valid inits to false
+		mTags = new unsigned long[mSets];
+		mValid = new bool[mSets];
+		mDirty = new bool[mSets];
+		mLRU = new int[mSets];
+		if (next != NULL && next->exists)
+			mNextLevel = next;
+		else
+			mNextLevel = NULL;
+		Cache::init_arrays();
+		exists = true;
+	}
+	else
+	{
+		exists = false;
+	}
 }
 
 //Returns true on hit and false on miss
@@ -86,9 +96,18 @@ bool Cache::read(unsigned long addr) {
 	std::cout << "Cache miss!" << std::endl << std::endl;
 	tracker.addReadMiss();
 
-
+	//Writeback if dirtybit is set
 	if (mDirty[LRUIndex]) {
 		tracker.addWriteback();
+		if(mNextLevel != NULL){
+			unsigned long wb_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+			mNextLevel->write(wb_addr);
+		}
+	}
+
+	//Check lower level for value
+	if(mNextLevel != NULL) {
+		mNextLevel->read(addr);
 	}
 
 	Cache::bump_LRU();
@@ -149,6 +168,15 @@ bool Cache::write(unsigned long addr) {
 
 	if (mDirty[LRUIndex]) {
 		tracker.addWriteback();
+		if(mNextLevel != NULL){
+			unsigned long wb_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+			mNextLevel->write(wb_addr);
+		}
+	}
+
+	//Check lower level for value
+	if(mNextLevel != NULL) {
+		mNextLevel->read(addr);
 	}
 
 	Cache::bump_LRU();
@@ -157,6 +185,25 @@ bool Cache::write(unsigned long addr) {
 	mValid[LRUIndex] = true;
 	mDirty[LRUIndex] = true;
     return false;
+}
+
+void Cache::print_contents() {
+	for(int i = 0; i < mSets; i++)
+	{
+		std::cout << " set\t" << i << ": ";
+		for(int j = 0; j < mAssoc; j++)
+		{
+			std::cout << "  " << std::hex << mTags[i*mAssoc + j] << std::dec;
+			if (mDirty[i*mAssoc + j])
+			{
+				std::cout << " D";
+			}else
+			{
+				std::cout << "  ";
+			}
+		}
+		std::cout << std::endl;
+	}
 }
 
 //Used to init valid and dirty arrays to false

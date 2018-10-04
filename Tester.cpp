@@ -13,7 +13,7 @@
 
 //TODO add command line args?
 //TODO add corresponding write tests
-int mainTest() {
+int test() {
 	//Run some tests
 	std::cout <<"***********************************************"
 			  "\n             Testing cache class \n" <<
@@ -45,6 +45,8 @@ int mainTest() {
 	myCache.read(0xCAB0BEEF);
 	assert(!myCache.read(0xDEADBEEF));
 	std::cout << "Success!" << std::endl;
+
+	myCache.print_contents();
 
 
     //Associative Cache tests

@@ -8,18 +8,21 @@
 #ifndef CACHE_H_
 #define CACHE_H_
 
+#include<iostream>
 #include "CacheStatTracker.h"
-//TODO define verbose?
 
 class Cache {
-	//TODO have this class keep track of its stats (eg hit/miss)
 public:
-	Cache(int size, int assoc, int blocksize);
-	//TODO read and write requests
+	Cache(int size, int assoc, int blocksize, Cache* next = NULL);
 	bool read(unsigned long addr);
 	bool write(unsigned long addr);
 
+	void print_contents();
+
 	CacheStatTracker tracker;
+
+	//Used for to work in L1 only cases
+	bool exists;
 
 
 private:
@@ -36,6 +39,8 @@ private:
 	int *mLRU;
 	bool *mValid;
 	bool *mDirty;
+
+	Cache *mNextLevel;
 
 	void init_arrays();
 	void bump_LRU();

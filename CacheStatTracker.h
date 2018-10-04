@@ -19,13 +19,15 @@ public:
 	int getWriteMissCount() {return mWriteMiss;};
 	int getWritebackCount() {return mWriteback;};
 
-	float getMissRate() {return (mReadMiss * 1.0F)/(mReadMiss + mRead);};
+	float getMissRate();
 
 	void addRead() {mRead++;};
 	void addReadMiss() {mReadMiss++;};
 	void addWrite() {mWrite++;};
 	void addWriteMiss() {mWriteMiss++;};
 	void addWriteback() {mWriteback++;};
+
+	void print_stats();
 
 private:
 	int mRead;

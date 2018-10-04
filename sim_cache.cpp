@@ -24,6 +24,36 @@ typedef struct cache_params{
     ... and so on
 */
 
+void print_stats(cache_params params, Cache L1, Cache L2) {
+	printf("===== L1 contents =====\n");
+	L1.print_contents();
+
+	if (params.l2_size != 0) {
+		printf("===== L2 contents =====\n");
+		L2.print_contents();
+	}
+
+	printf("===== Simulation results =====\n");
+	printf("  a. number of L1 reads:               %d\n",L1.tracker.getReadCount());
+	printf("  b. number of L1 read misses:         %d\n",L1.tracker.getReadMissCount());
+	printf("  c. number of L1 writes:              %d\n",L1.tracker.getWriteCount());
+	printf("  d. number of L1 write misses:        %d\n",L1.tracker.getWriteMissCount());
+	//TODO: Track swap requests
+	printf("  e. number of swap requests           %d\n", 0);
+	printf("  f. swap request rate:                %1.4f\n", 0.0F);
+	printf("  g. number of swaps:                  %d\n", 0);
+	printf("  h. combined L1+VC miss rate          %1.4f\n",L1.tracker.getMissRate());
+	printf("  i. number of writebacks from L1/VC:  %d\n",L1.tracker.getWritebackCount());
+	printf("  j. number of L2 reads:               %d\n",L2.tracker.getReadCount());
+	printf("  k. number of L2 read misses:         %d\n",L2.tracker.getReadMissCount());
+	printf("  l. number of L2 writes:              %d\n",L2.tracker.getWriteCount());
+	printf("  m. number of L2 write misses:        %d\n",L2.tracker.getWriteMissCount());
+	printf("  n. L2 miss rate                      %1.4f\n",L2.tracker.getMissRate());
+	printf("  o. number of writebacks from L2:     %d\n",L2.tracker.getWritebackCount());
+	//TODO: double check that this is the right number
+	printf("  p. total memory traffic:             %d\n",L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()+L1.tracker.getWritebackCount());
+}
+
 // cache_project.exe 32
 int main (int argc, char* argv[])
 {
@@ -68,7 +98,9 @@ int main (int argc, char* argv[])
             "  trace_file:                       %s\n"
             "  ===================================\n\n", params.block_size, params.l1_size, params.l1_assoc, params.vc_num_blocks, params.l2_size, params.l2_assoc, trace_file);
 
-    Cache L1(params.l1_size,params.l1_assoc,params.block_size);
+    Cache L2(params.l2_size,params.l2_assoc,params.block_size);
+    Cache L1(params.l1_size,params.l1_assoc,params.block_size,&L2);
+
 
     char str[2];
     while(fscanf(FP, "%s %lx", str, &addr) != EOF)
@@ -87,13 +119,11 @@ int main (int argc, char* argv[])
                   Add cache code here
         **************************************/
     }
-
-    printf("Finished!");
-    printf("Total Reads: %d \n"
-    		"Total Writes %d", L1.tracker.getReadCount(), L1.tracker.getWriteCount());
-
+    print_stats(params,L1,L2);
     return 0;
 }
+
+
 
 
 
