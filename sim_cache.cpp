@@ -49,8 +49,9 @@ void print_stats(cache_params params, Cache L1, Cache L2) {
 	printf("  l. number of L2 writes:              %d\n",L2.tracker.getWriteCount());
 	printf("  m. number of L2 write misses:        %d\n",L2.tracker.getWriteMissCount());
 	printf("  n. L2 miss rate                      %1.4f\n",L2.tracker.getMissRate());
+	//TODO: this doesn't include write misses
 	printf("  o. number of writebacks from L2:     %d\n",L2.tracker.getWritebackCount());
-	//TODO: double check that this is the right number
+	//TODO: fix this calculation
 	printf("  p. total memory traffic:             %d\n",L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()+L1.tracker.getWritebackCount());
 }
 

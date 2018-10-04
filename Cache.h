@@ -43,7 +43,7 @@ private:
 	Cache *mNextLevel;
 
 	void init_arrays();
-	void bump_LRU();
+	void update_LRU(unsigned long set, int way);
 
 };
 

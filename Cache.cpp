@@ -27,10 +27,11 @@ Cache::Cache(int size, int assoc, int blocksize, Cache* next) {
 				<< "   Sets: " << mSets << " " << mLogSets << std::endl
 				<< "   Association: " << mAssoc << std::endl <<std::endl;
 
-		mTags = new unsigned long[mSets];
-		mValid = new bool[mSets];
-		mDirty = new bool[mSets];
-		mLRU = new int[mSets];
+		int array_size = mSets*mAssoc;
+		mTags = new unsigned long[array_size];
+		mValid = new bool[array_size];
+		mDirty = new bool[array_size];
+		mLRU = new int[array_size];
 		if (next != NULL && next->exists)
 			mNextLevel = next;
 		else
@@ -61,8 +62,8 @@ bool Cache::read(unsigned long addr) {
 
 		if(VERBOSE)
 		std::cout << "Handling read request..." << std::endl
-				<< "   Set: " << set << std::endl
-				<< "   Index: " << i << std::endl
+				<< "   Set: " << set << " (" << index << ")" << std::endl
+				<< "   Index: " << i  << std::endl
 				<< "   Tag: " << tag << std::endl
 				<< "   Cache LRU: " << mLRU[index] << std::endl
 				<< "   Cache Tag: " << mTags[index] << std::endl
@@ -74,9 +75,7 @@ bool Cache::read(unsigned long addr) {
 			//Cache hit
 			if(VERBOSE)
 			std::cout << "Cache hit!" << std::endl << std::endl;
-
-			Cache::bump_LRU();
-		    mLRU[LRUIndex] = 0;
+			update_LRU(set,index);
 			return true;
 		}
 
@@ -110,8 +109,7 @@ bool Cache::read(unsigned long addr) {
 		mNextLevel->read(addr);
 	}
 
-	Cache::bump_LRU();
-	mLRU[LRUIndex] = 0;
+	update_LRU(set,LRUIndex);
 	mTags[LRUIndex] = tag;
 	mValid[LRUIndex] = true;
 	mDirty[LRUIndex] = false;
@@ -146,9 +144,7 @@ bool Cache::write(unsigned long addr) {
 			//Cache hit
 			if(VERBOSE)
 			std::cout << "Cache hit!" << std::endl << std::endl;
-
-			Cache::bump_LRU();
-			mLRU[LRUIndex] = 0;
+			update_LRU(set,index);
 			mDirty[index] = true;
 			return true;
 		}
@@ -179,8 +175,7 @@ bool Cache::write(unsigned long addr) {
 		mNextLevel->read(addr);
 	}
 
-	Cache::bump_LRU();
-	mLRU[LRUIndex] = 0;
+	update_LRU(set,LRUIndex);
 	mTags[LRUIndex] = tag;
 	mValid[LRUIndex] = true;
 	mDirty[LRUIndex] = true;
@@ -188,13 +183,22 @@ bool Cache::write(unsigned long addr) {
 }
 
 void Cache::print_contents() {
+	unsigned long Tags[mAssoc];
+	bool Dirty[mAssoc];
 	for(int i = 0; i < mSets; i++)
 	{
 		std::cout << " set\t" << i << ": ";
+		//Get tags into LRU sorted order
 		for(int j = 0; j < mAssoc; j++)
 		{
-			std::cout << "  " << std::hex << mTags[i*mAssoc + j] << std::dec;
-			if (mDirty[i*mAssoc + j])
+			Tags[mLRU[mAssoc*i+j]] = mTags[mAssoc*i+j];
+			Dirty[mLRU[mAssoc*i+j]] = mDirty[mAssoc*i+j];
+		}
+
+		for(int k = 0; k < mAssoc; k++)
+		{
+			std::cout << "  " << std::hex << Tags[k] << std::dec;
+			if (Dirty[k])
 			{
 				std::cout << " D";
 			}else
@@ -212,15 +216,19 @@ void Cache::init_arrays() {
 	for (int i = 0; i < mSets*mAssoc; i++) {
 		mValid[i] = false;
 		mDirty[i] = false;
-		mLRU[i] = 0x7FFFFFFE;
+		mLRU[i] = mAssoc-1;
 	}
 }
 
-void Cache::bump_LRU() {
-	for (int i = 0; i < mSets*mAssoc; i++) {
-		//Overflows cause errors if this is 0x7FFFFFFF
-		mLRU[i] = std::min(0x7FFFFFFE, mLRU[i]+1);
+//REWRITE THIS
+void Cache::update_LRU(unsigned long set, int way) {
+	for (unsigned long i = set*mAssoc; i < (set+1)*mAssoc; i++) {
+		if (mLRU[i] < mLRU[way])
+		{
+			mLRU[i]++;
+		}
 	}
+	mLRU[way] = 0;
 }
 
 //fails if number is not power of two
