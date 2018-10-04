@@ -58,4 +58,3 @@
   n. L2 miss rate:                            0.0000
   o. number of writebacks from L2:                 0
   p. total memory traffic:                     24698
-  

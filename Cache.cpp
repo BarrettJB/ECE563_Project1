@@ -187,7 +187,7 @@ void Cache::print_contents() {
 	bool Dirty[mAssoc];
 	for(int i = 0; i < mSets; i++)
 	{
-		std::cout << " set\t" << i << ": ";
+		printf("  set %3d: ",i);
 		//Get tags into LRU sorted order
 		for(int j = 0; j < mAssoc; j++)
 		{
