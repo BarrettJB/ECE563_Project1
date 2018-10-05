@@ -13,10 +13,10 @@
 
 class Cache {
 public:
-	Cache(int size, int assoc, int blocksize, Cache* next = NULL);
+	Cache(int size, int assoc, int blocksize, Cache* next = NULL, int vcsize = 0);
 	bool read(unsigned long addr);
 	bool write(unsigned long addr);
-
+	bool swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *tag_ret, bool *dirty_ret);
 	void print_contents();
 
 	CacheStatTracker tracker;
@@ -41,6 +41,7 @@ private:
 	bool *mDirty;
 
 	Cache *mNextLevel;
+	Cache *mVictimCache;
 
 	void init_arrays();
 	void update_LRU(unsigned long set, int way);

@@ -18,14 +18,19 @@ public:
 	int getWriteCount() {return mWrite;};
 	int getWriteMissCount() {return mWriteMiss;};
 	int getWritebackCount() {return mWriteback;};
+	int getSwapCount() {return mSwap;};
+	int getSwapRequestCount() {return mSwapRequests++;};
 
 	float getMissRate();
+	float getReadMissRate();
 
 	void addRead() {mRead++;};
 	void addReadMiss() {mReadMiss++;};
 	void addWrite() {mWrite++;};
 	void addWriteMiss() {mWriteMiss++;};
 	void addWriteback() {mWriteback++;};
+	void addSwap() {mSwap++;};
+	void addSwapRequest() {mSwapRequests++;};
 
 	void print_stats();
 
@@ -35,6 +40,8 @@ private:
 	int mWrite;
 	int mWriteMiss;
 	int mWriteback;
+	int mSwap;
+	int mSwapRequests;
 };
 
 #endif /* CACHESTATTRACKER_H_ */

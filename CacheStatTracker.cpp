@@ -13,11 +13,21 @@ CacheStatTracker::CacheStatTracker() {
 	mWrite = 0;
 	mWriteMiss = 0;
 	mWriteback = 0;
+	mSwap = 0;
+	mSwapRequests = 0;
 }
 
 float CacheStatTracker::getMissRate() {
 	if ((mRead + mWrite) > 0)
-		return ((mReadMiss + mWriteMiss) * 1.0F)/(mRead + mWrite);
+		return ((mReadMiss + mWriteMiss - mSwapRequests) * 1.0F)/(mRead + mWrite);
+	else
+		return 0.0F;
+}
+
+
+float CacheStatTracker::getReadMissRate() {
+	if ((mRead + mWrite) > 0)
+		return ((mReadMiss) * 1.0F)/(mRead);
 	else
 		return 0.0F;
 }

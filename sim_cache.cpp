@@ -41,9 +41,9 @@ void print_stats(cache_params params, Cache L1, Cache L2) {
 	printf("  c. number of L1 writes: %26d\n",L1.tracker.getWriteCount());
 	printf("  d. number of L1 write misses: %20d\n",L1.tracker.getWriteMissCount());
 	//TODO: Track swap requests
-	printf("  e. number of swap requests: %22d\n", 0);
+	printf("  e. number of swap requests: %22d\n", L1.tracker.getSwapRequestCount());
 	printf("  f. swap request rate: %28.4f\n", 0.0F);
-	printf("  g. number of swaps: %30d\n", 0);
+	printf("  g. number of swaps: %30d\n", L1.tracker.getSwapCount());
 	printf("  h. combined L1+VC miss rate: %21.4f\n",L1.tracker.getMissRate());
 	printf("  i. number writebacks from L1/VC: %17d\n",L1.tracker.getWritebackCount());
 	printf("  j. number of L2 reads: %27d\n",L2.tracker.getReadCount());
@@ -101,7 +101,7 @@ int main (int argc, char* argv[])
             "  trace_file: %18s\n\n", params.block_size, params.l1_size, params.l1_assoc, params.vc_num_blocks, params.l2_size, params.l2_assoc, "gcc_trace.txt");
 
     Cache L2(params.l2_size,params.l2_assoc,params.block_size);
-    Cache L1(params.l1_size,params.l1_assoc,params.block_size,&L2);
+    Cache L1(params.l1_size,params.l1_assoc,params.block_size,&L2,params.vc_num_blocks);
 
 
     char str[2];

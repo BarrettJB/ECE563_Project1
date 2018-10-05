@@ -7,12 +7,13 @@
 
 #include "Cache.h"
 #include "CacheMath.h"
-#include<algorithm>
+#include <algorithm>
+#include <stdio.h>
 
 #define VERBOSE false
 
 //TODO validate input options
-Cache::Cache(int size, int assoc, int blocksize, Cache* next) {
+Cache::Cache(int size, int assoc, int blocksize, Cache* next, int vcsize) {
 	if(size != 0)
 	{
 		mBlocksize = blocksize;
@@ -22,10 +23,10 @@ Cache::Cache(int size, int assoc, int blocksize, Cache* next) {
 		mLogBlockSize = CacheMath::log2(blocksize);
 
 		if(VERBOSE)
-		std::cout << "New Cache Created!" << std::endl
-				<< "   Blocksize: " << mBlocksize << " " << mLogBlockSize << std::endl
-				<< "   Sets: " << mSets << " " << mLogSets << std::endl
-				<< "   Association: " << mAssoc << std::endl <<std::endl;
+			std::cout << "New Cache Created!" << std::endl
+			<< "   Blocksize: " << mBlocksize << " " << mLogBlockSize << std::endl
+			<< "   Sets: " << mSets << " " << mLogSets << std::endl
+			<< "   Association: " << mAssoc << std::endl <<std::endl;
 
 		int array_size = mSets*mAssoc;
 		mTags = new unsigned long[array_size];
@@ -36,6 +37,10 @@ Cache::Cache(int size, int assoc, int blocksize, Cache* next) {
 			mNextLevel = next;
 		else
 			mNextLevel = NULL;
+		if (vcsize != 0)
+			mVictimCache = new Cache(vcsize*blocksize,vcsize,blocksize,mNextLevel);
+		else
+			mVictimCache = NULL;
 		Cache::init_arrays();
 		exists = true;
 	}
@@ -51,6 +56,7 @@ bool Cache::read(unsigned long addr) {
 	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
 	int LRUMax = -1;
 	int LRUIndex = -1;
+	bool setFull = true;
 
 	tracker.addRead();
 
@@ -61,20 +67,20 @@ bool Cache::read(unsigned long addr) {
 		unsigned long index = set*mAssoc + i;
 
 		if(VERBOSE)
-		std::cout << "Handling read request..." << std::endl
-				<< "   Set: " << set << " (" << index << ")" << std::endl
-				<< "   Index: " << i  << std::endl
-				<< "   Tag: " << tag << std::endl
-				<< "   Cache LRU: " << mLRU[index] << std::endl
-				<< "   Cache Tag: " << mTags[index] << std::endl
-				<< "   Cache Valid: " << mValid[index] << std::endl;
+			std::cout << "Handling read request..." << std::endl
+			<< "   Set: " << set << " (" << index << ")" << std::endl
+			<< "   Index: " << i  << std::endl
+			<< "   Tag: " << tag << std::endl
+			<< "   Cache LRU: " << mLRU[index] << std::endl
+			<< "   Cache Tag: " << mTags[index] << std::endl
+			<< "   Cache Valid: " << mValid[index] << std::endl;
 
 		//Check for cache hits;
 		if (mTags[index] == tag && mValid[index])
 		{
 			//Cache hit
 			if(VERBOSE)
-			std::cout << "Cache hit!" << std::endl << std::endl;
+				std::cout << "Cache hit!" << std::endl << std::endl;
 			update_LRU(set,index);
 			return true;
 		}
@@ -83,37 +89,92 @@ bool Cache::read(unsigned long addr) {
 		if (LRUMax < mLRU[index])
 		{
 			if(VERBOSE)
-			std::cout << "  LRU index changed to: " << index << std::endl;
+				std::cout << "  LRU index changed to: " << index << std::endl;
 			LRUMax = mLRU[index];
 			LRUIndex = index;
 		}
+
+		if (!mValid[index])
+			setFull = false;
 	}
 
 
 	//Cache Miss
 	if(VERBOSE)
-	std::cout << "Cache miss!" << std::endl << std::endl;
+		std::cout << "Cache miss!" << std::endl << std::endl;
 	tracker.addReadMiss();
 
-	//Writeback if dirtybit is set
-	if (mDirty[LRUIndex]) {
-		tracker.addWriteback();
-		if(mNextLevel != NULL){
-			unsigned long wb_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
-			mNextLevel->write(wb_addr);
+	//swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *tag_ret, bool *dirty_ret)
+	//Check victim cache
+	if (mVictimCache != NULL)
+	{
+		if (setFull) {
+			tracker.addSwapRequest();
+			unsigned long sw_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+			unsigned long tag_ret;
+			bool dirty_ret;
+			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&tag_ret,&dirty_ret))
+			{
+				tracker.addSwap();
+				update_LRU(set,LRUIndex);
+				mTags[LRUIndex] = tag_ret;
+				mValid[LRUIndex] = true;
+				mDirty[LRUIndex] = dirty_ret;
+
+			}
+			else
+			{
+				if (mDirty[LRUIndex])
+					tracker.addWriteback();
+				//Check lower level for value
+				if(mNextLevel != NULL) {
+					mNextLevel->read(addr);
+				}
+
+				update_LRU(set,LRUIndex);
+				mTags[LRUIndex] = tag;
+				mValid[LRUIndex] = true;
+				mDirty[LRUIndex] = false;
+				return false;
+			}
+		}
+		else
+		{
+			//Check lower level for value
+			if(mNextLevel != NULL) {
+				mNextLevel->read(addr);
+			}
+
+			update_LRU(set,LRUIndex);
+			mTags[LRUIndex] = tag;
+			mValid[LRUIndex] = true;
+			mDirty[LRUIndex] = false;
+			return false;
 		}
 	}
+	//if there isn't a victim cache
+	else
+	{
+		//Writeback if dirtybit is set
+		if (mDirty[LRUIndex]) {
+			tracker.addWriteback();
+			if(mNextLevel != NULL){
+				unsigned long wb_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+				mNextLevel->write(wb_addr);
+			}
+		}
 
-	//Check lower level for value
-	if(mNextLevel != NULL) {
-		mNextLevel->read(addr);
+		//Check lower level for value
+		if(mNextLevel != NULL) {
+			mNextLevel->read(addr);
+		}
+
+		update_LRU(set,LRUIndex);
+		mTags[LRUIndex] = tag;
+		mValid[LRUIndex] = true;
+		mDirty[LRUIndex] = false;
+		return false;
 	}
-
-	update_LRU(set,LRUIndex);
-	mTags[LRUIndex] = tag;
-	mValid[LRUIndex] = true;
-	mDirty[LRUIndex] = false;
-    return false;
 }
 
 bool Cache::write(unsigned long addr) {
@@ -121,6 +182,7 @@ bool Cache::write(unsigned long addr) {
 	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
 	int LRUMax = -1;
 	int LRUIndex = -1;
+	bool setFull = true;
 
 	tracker.addWrite();
 
@@ -131,19 +193,19 @@ bool Cache::write(unsigned long addr) {
 		unsigned long index = set*mAssoc + i;
 
 		if(VERBOSE)
-		std::cout << "Handling read request..." << std::endl
-				<< "   Set: " << set << std::endl
-				<< "   Index: " << i << std::endl
-				<< "   Tag: " << tag << std::endl
-				<< "   Cache Tag: " << mTags[index] << std::endl
-				<< "   Cache Valid: " << mValid[index] << std::endl;
+			std::cout << "Handling read request..." << std::endl
+			<< "   Set: " << set << std::endl
+			<< "   Index: " << i << std::endl
+			<< "   Tag: " << tag << std::endl
+			<< "   Cache Tag: " << mTags[index] << std::endl
+			<< "   Cache Valid: " << mValid[index] << std::endl;
 
 		//Check for cache hits;
 		if (mTags[index] == tag && mValid[index])
 		{
 			//Cache hit
 			if(VERBOSE)
-			std::cout << "Cache hit!" << std::endl << std::endl;
+				std::cout << "Cache hit!" << std::endl << std::endl;
 			update_LRU(set,index);
 			mDirty[index] = true;
 			return true;
@@ -155,13 +217,111 @@ bool Cache::write(unsigned long addr) {
 			LRUMax = mLRU[index];
 			LRUIndex = index;
 		}
+
+		if (!mValid[index])
+			setFull = false;
 	}
 
 	//Cache Miss
 	if(VERBOSE)
-	std::cout << "Cache miss!" << std::endl << std::endl;
+		std::cout << "Cache miss!" << std::endl << std::endl;
 	tracker.addWriteMiss();
 
+	if (mVictimCache != NULL)
+	{
+		if (setFull)
+		{
+			tracker.addSwapRequest();
+			unsigned long sw_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+			unsigned long tag_ret;
+			bool dirty_ret;
+			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&tag_ret,&dirty_ret))
+			{
+				tracker.addSwap();
+				update_LRU(set,LRUIndex);
+				mTags[LRUIndex] = tag_ret;
+				mValid[LRUIndex] = true;
+				mDirty[LRUIndex] = true;
+
+			}
+			else
+			{
+				//VC will have a writeback in this scenario
+				tracker.addWriteback();
+				//Check lower level for value
+				if(mNextLevel != NULL) {
+					mNextLevel->read(addr);
+				}
+
+				update_LRU(set,LRUIndex);
+				mTags[LRUIndex] = tag;
+				mValid[LRUIndex] = true;
+				mDirty[LRUIndex] = true;
+				return false;
+			}
+		}
+	}
+	else
+	{
+		//Handle writeback on dirty bits
+		if (mDirty[LRUIndex]) {
+			tracker.addWriteback();
+			if(mNextLevel != NULL){
+				unsigned long wb_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
+				mNextLevel->write(wb_addr);
+			}
+		}
+
+		//Check lower level for value
+		if(mNextLevel != NULL) {
+			mNextLevel->read(addr);
+		}
+
+		update_LRU(set,LRUIndex);
+		mTags[LRUIndex] = tag;
+		mValid[LRUIndex] = true;
+		mDirty[LRUIndex] = true;
+		return false;
+	}
+}
+
+bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *tag_ret, bool *dirty_ret)
+{
+	//set shouldn't matter since this is fully associative
+	unsigned long set = CacheMath::getSet(addr, mLogBlockSize, mSets);
+	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
+	unsigned long tag_vic = CacheMath::getSet(addr_vic, mLogBlockSize, mSets);
+
+	int LRUMax = -1;
+	int LRUIndex = -1;
+
+	for(int i = 0; i < mAssoc; i++) {
+
+		unsigned long index = set*mAssoc + i;
+
+		if (mTags[index] == tag && mValid[index])
+		{
+			*tag_ret = mTags[index];
+			*dirty_ret = mDirty[index];
+
+			update_LRU(set,index);
+			mTags[index] = tag_vic;
+			mDirty[index] = dirty_vic;
+			mValid[index] = true;
+
+			return true;
+		}
+
+		//Track LRU for eviction
+		if (LRUMax < mLRU[index])
+		{
+			LRUMax = mLRU[index];
+			LRUIndex = index;
+		}
+	}
+
+	//Victim Cache 'miss'
+	//Handle writeback on dirty bits
 	if (mDirty[LRUIndex]) {
 		tracker.addWriteback();
 		if(mNextLevel != NULL){
@@ -170,16 +330,11 @@ bool Cache::write(unsigned long addr) {
 		}
 	}
 
-	//Check lower level for value
-	if(mNextLevel != NULL) {
-		mNextLevel->read(addr);
-	}
-
 	update_LRU(set,LRUIndex);
-	mTags[LRUIndex] = tag;
+	mTags[LRUIndex] = tag_vic;
 	mValid[LRUIndex] = true;
-	mDirty[LRUIndex] = true;
-    return false;
+	mDirty[LRUIndex] = dirty_vic;
+	return false;
 }
 
 void Cache::print_contents() {
