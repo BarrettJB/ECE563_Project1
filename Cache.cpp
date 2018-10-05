@@ -58,9 +58,6 @@ bool Cache::read(unsigned long addr) {
 	int LRUIndex = -1;
 	bool setFull = true;
 
-	std::cout << "addr from rq: " << std::hex << addr;
-	std::cout << "\ttag from addr: " << tag << std::endl;
-
 	tracker.addRead();
 
 	for(int i = 0; i < mAssoc; i++) {
@@ -345,8 +342,8 @@ bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, uns
 }
 
 void Cache::print_contents() {
-	unsigned long Tags[mAssoc-1];
-	bool Dirty[mAssoc-1];
+	unsigned long Tags[mAssoc];
+	bool Dirty[mAssoc];
 	for(int i = 0; i < mSets; i++)
 	{
 		printf("  set %3d: ",i);
