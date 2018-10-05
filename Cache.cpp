@@ -58,6 +58,9 @@ bool Cache::read(unsigned long addr) {
 	int LRUIndex = -1;
 	bool setFull = true;
 
+	std::cout << "addr from rq: " << std::hex << addr;
+	std::cout << "\ttag from addr: " << tag << std::endl;
+
 	tracker.addRead();
 
 	for(int i = 0; i < mAssoc; i++) {
@@ -111,10 +114,13 @@ bool Cache::read(unsigned long addr) {
 		if (setFull) {
 			tracker.addSwapRequest();
 			unsigned long sw_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
-			unsigned long tag_ret;
+			unsigned long addr_ret;
 			bool dirty_ret;
-			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&tag_ret,&dirty_ret))
+			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&addr_ret,&dirty_ret))
 			{
+				unsigned long tag_ret = CacheMath::getTag(addr_ret, mLogBlockSize, mLogSets);
+				std::cout << "addr from vc: " << std::hex << addr_ret;
+				std::cout << "\ttag from addr: " << tag_ret << std::endl;
 				tracker.addSwap();
 				update_LRU(set,LRUIndex);
 				mTags[LRUIndex] = tag_ret;
@@ -233,10 +239,11 @@ bool Cache::write(unsigned long addr) {
 		{
 			tracker.addSwapRequest();
 			unsigned long sw_addr = CacheMath::getAddr(mTags[LRUIndex],set,mLogBlockSize, mLogSets);
-			unsigned long tag_ret;
+			unsigned long addr_ret;
 			bool dirty_ret;
-			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&tag_ret,&dirty_ret))
+			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&addr_ret,&dirty_ret))
 			{
+				unsigned long tag_ret = CacheMath::getTag(addr_ret, mLogBlockSize, mLogSets);
 				tracker.addSwap();
 				update_LRU(set,LRUIndex);
 				mTags[LRUIndex] = tag_ret;
@@ -285,12 +292,12 @@ bool Cache::write(unsigned long addr) {
 	}
 }
 
-bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *tag_ret, bool *dirty_ret)
+bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *addr_ret, bool *dirty_ret)
 {
 	//set shouldn't matter since this is fully associative
 	unsigned long set = CacheMath::getSet(addr, mLogBlockSize, mSets);
 	unsigned long tag = CacheMath::getTag(addr, mLogBlockSize, mLogSets);
-	unsigned long tag_vic = CacheMath::getSet(addr_vic, mLogBlockSize, mSets);
+	unsigned long tag_vic = CacheMath::getTag(addr_vic, mLogBlockSize, mLogSets);
 
 	int LRUMax = -1;
 	int LRUIndex = -1;
@@ -301,7 +308,7 @@ bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, uns
 
 		if (mTags[index] == tag && mValid[index])
 		{
-			*tag_ret = mTags[index];
+			*addr_ret = CacheMath::getAddr(mTags[index],set,mLogBlockSize, mLogSets);
 			*dirty_ret = mDirty[index];
 
 			update_LRU(set,index);
@@ -338,8 +345,8 @@ bool Cache::swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, uns
 }
 
 void Cache::print_contents() {
-	unsigned long Tags[mAssoc];
-	bool Dirty[mAssoc];
+	unsigned long Tags[mAssoc-1];
+	bool Dirty[mAssoc-1];
 	for(int i = 0; i < mSets; i++)
 	{
 		printf("  set %3d: ",i);
@@ -363,19 +370,26 @@ void Cache::print_contents() {
 		}
 		std::cout << std::endl;
 	}
+
+	if (mVictimCache != NULL)
+	{
+		printf( "===== VC contents =====\n");
+		mVictimCache->print_contents();
+	}
 }
 
 //Used to init valid and dirty arrays to false
 //uses 0x7FFFFFFE as max to prevent overflows
 void Cache::init_arrays() {
 	for (int i = 0; i < mSets*mAssoc; i++) {
+		mTags[i] = 0;
 		mValid[i] = false;
 		mDirty[i] = false;
-		mLRU[i] = mAssoc-1;
+		mLRU[i] = (i%(mAssoc));
 	}
 }
 
-//REWRITE THIS
+
 void Cache::update_LRU(unsigned long set, int way) {
 	for (unsigned long i = set*mAssoc; i < (set+1)*mAssoc; i++) {
 		if (mLRU[i] < mLRU[way])
