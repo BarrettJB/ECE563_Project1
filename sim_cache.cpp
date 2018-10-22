@@ -42,19 +42,40 @@ void print_stats(cache_params params, Cache L1, Cache L2) {
 	printf("  d. number of L1 write misses: %20d\n",L1.tracker.getWriteMissCount());
 	//TODO: Track swap requests
 	printf("  e. number of swap requests: %22d\n", L1.tracker.getSwapRequestCount());
-	printf("  f. swap request rate: %28.4f\n", 0.0F);
+	if (params.vc_num_blocks == 0)
+		printf("  f. swap request rate: %28.4f\n", 0.0F);
+	else
+		printf("  f. swap request rate: %28.4f\n", 1.0f*L1.tracker.getSwapRequestCount()/(L1.tracker.getReadCount()+L1.tracker.getWriteCount()));
 	printf("  g. number of swaps: %30d\n", L1.tracker.getSwapCount());
-	printf("  h. combined L1+VC miss rate: %21.4f\n",L1.tracker.getMissRate());
-	printf("  i. number writebacks from L1/VC: %17d\n",L1.tracker.getWritebackCount());
+	if (params.vc_num_blocks == 0)
+	{
+		printf("  h. combined L1+VC miss rate: %21.4f\n",L1.tracker.getMissRate());
+		printf("  i. number writebacks from L1/VC: %17d\n",L1.tracker.getWritebackCount());
+	}
+	else
+	{
+		float mr = 1.0f*(L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()-L1.tracker.getSwapCount())/(L1.tracker.getReadCount()+L1.tracker.getWriteCount());
+		printf("  h. combined L1+VC miss rate: %21.4f\n",mr);
+		printf("  i. number writebacks from L1/VC: %17d\n",L1.mVictimCache->tracker.getWritebackCount());
+	}
 	printf("  j. number of L2 reads: %27d\n",L2.tracker.getReadCount());
 	printf("  k. number of L2 read misses: %21d\n",L2.tracker.getReadMissCount());
 	printf("  l. number of L2 writes: %26d\n",L2.tracker.getWriteCount());
 	printf("  m. number of L2 write misses: %20d\n",L2.tracker.getWriteMissCount());
-	printf("  n. L2 miss rate: %33.4f\n",L2.tracker.getMissRate());
+	printf("  n. L2 miss rate: %33.4f\n",L2.tracker.getReadMissRate());
 	//TODO: this doesn't include write misses
 	printf("  o. number of writebacks from L2: %17d\n",L2.tracker.getWritebackCount());
 	//TODO: fix this calculation
-	printf("  p. total memory traffic: %25d\n",L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()+L1.tracker.getWritebackCount());
+	if (L2.exists)
+	{
+		printf("  p. total memory traffic: %25d\n", L2.tracker.getReadMissCount() + L2.tracker.getWriteMissCount()+L2.tracker.getWritebackCount());
+	}
+	else  {
+		if (params.vc_num_blocks == 0)
+			printf("  p. total memory traffic: %25d\n",L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()+L1.tracker.getWritebackCount());
+		else
+			printf("  p. total memory traffic: %25d\n",L1.tracker.getReadMissCount()+L1.tracker.getWriteMissCount()+L1.mVictimCache->tracker.getWritebackCount()-L1.tracker.getSwapCount());
+	}
 }
 
 // cache_project.exe 32

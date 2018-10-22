@@ -18,8 +18,12 @@ public:
 	bool write(unsigned long addr);
 	bool swap(unsigned long addr, unsigned long addr_vic, bool dirty_vic, unsigned long *tag_ret, bool *dirty_ret);
 	void print_contents();
+	//Need this because for some reason the formatting on main cache and vc are different????
+	void print_vc_contents();
 
 	CacheStatTracker tracker;
+
+	Cache *mVictimCache;
 
 	//Used for to work in L1 only cases
 	bool exists;
@@ -41,7 +45,6 @@ private:
 	bool *mDirty;
 
 	Cache *mNextLevel;
-	Cache *mVictimCache;
 
 	void init_arrays();
 	void update_LRU(unsigned long set, int way);

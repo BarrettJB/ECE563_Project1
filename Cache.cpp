@@ -116,8 +116,8 @@ bool Cache::read(unsigned long addr) {
 			if (mVictimCache->swap(addr,sw_addr,mDirty[LRUIndex],&addr_ret,&dirty_ret))
 			{
 				unsigned long tag_ret = CacheMath::getTag(addr_ret, mLogBlockSize, mLogSets);
-				std::cout << "addr from vc: " << std::hex << addr_ret;
-				std::cout << "\ttag from addr: " << tag_ret << std::endl;
+				//std::cout << "addr from vc: " << std::hex << addr_ret;
+				//std::cout << "\ttag from addr: " << tag_ret << std::endl;
 				tracker.addSwap();
 				update_LRU(set,LRUIndex);
 				mTags[LRUIndex] = tag_ret;
@@ -127,8 +127,7 @@ bool Cache::read(unsigned long addr) {
 			}
 			else
 			{
-				if (mDirty[LRUIndex])
-					tracker.addWriteback();
+
 				//Check lower level for value
 				if(mNextLevel != NULL) {
 					mNextLevel->read(addr);
@@ -196,7 +195,7 @@ bool Cache::write(unsigned long addr) {
 		unsigned long index = set*mAssoc + i;
 
 		if(VERBOSE)
-			std::cout << "Handling read request..." << std::endl
+			std::cout << "Handling write request..." << std::endl
 			<< "   Set: " << set << std::endl
 			<< "   Index: " << i << std::endl
 			<< "   Tag: " << tag << std::endl
@@ -250,8 +249,6 @@ bool Cache::write(unsigned long addr) {
 			}
 			else
 			{
-				//VC will have a writeback in this scenario
-				tracker.addWriteback();
 				//Check lower level for value
 				if(mNextLevel != NULL) {
 					mNextLevel->read(addr);
@@ -264,7 +261,21 @@ bool Cache::write(unsigned long addr) {
 				return false;
 			}
 		}
+		else
+		{
+			//Check lower level for value
+			if(mNextLevel != NULL) {
+				mNextLevel->read(addr);
+			}
+
+			update_LRU(set,LRUIndex);
+			mTags[LRUIndex] = tag;
+			mValid[LRUIndex] = true;
+			mDirty[LRUIndex] = true;
+			return false;
+		}
 	}
+	//if there isn't a victim cache
 	else
 	{
 		//Handle writeback on dirty bits
@@ -370,7 +381,41 @@ void Cache::print_contents() {
 
 	if (mVictimCache != NULL)
 	{
-		printf( "===== VC contents =====\n");
+		printf( "\n===== VC contents =====\n");
+		mVictimCache->print_vc_contents();
+	}
+}
+
+void Cache::print_vc_contents() {
+	unsigned long Tags[mAssoc];
+	bool Dirty[mAssoc];
+	for(int i = 0; i < mSets; i++)
+	{
+		printf("  set %3d: ",i);
+		//Get tags into LRU sorted order
+		for(int j = 0; j < mAssoc; j++)
+		{
+			Tags[mLRU[mAssoc*i+j]] = mTags[mAssoc*i+j];
+			Dirty[mLRU[mAssoc*i+j]] = mDirty[mAssoc*i+j];
+		}
+
+		for(int k = 0; k < mAssoc; k++)
+		{
+			std::cout << " " << std::hex << Tags[k] << std::dec;
+			if (Dirty[k])
+			{
+				std::cout << " D";
+			}else
+			{
+				std::cout << "  ";
+			}
+		}
+		std::cout << std::endl;
+	}
+
+	if (mVictimCache != NULL)
+	{
+		printf( "\n===== VC contents =====\n");
 		mVictimCache->print_contents();
 	}
 }

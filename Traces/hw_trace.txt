@@ -1,0 +1,10 @@
+w dead0f00
+w dead0a00
+w deed0a00
+r bed00c10
+r deadbeef
+w adbede1a
+r eadbde0b
+w dead0a00
+r deed0a00
+w beed0a00
